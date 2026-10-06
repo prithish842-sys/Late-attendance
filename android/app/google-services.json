@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "585065428392",
+    "firebase_url": "https://late-attendance-5bf6d-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "late-attendance-5bf6d",
+    "storage_bucket": "late-attendance-5bf6d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:585065428392:android:0118a5f8aa5c75406cd99d",
+        "android_client_info": {
+          "package_name": "com.example.late_attendance"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAc4FUfSLHKAvHNFedLYZDOK4AATJTLpog"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

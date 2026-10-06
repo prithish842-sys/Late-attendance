@@ -1,0 +1,82 @@
+[
+  {
+    "studentId": "26BSC001",
+    "name": "ABISHA J",
+    "department": "B.SC CS",
+    "phone": "+919876543210 (SAMPLE)",
+    "barcode": "890123456001 (SAMPLE)",
+    "photoFile": "26BSC001.jpg"
+  },
+  {
+    "studentId": "26BSC004",
+    "name": "AKSHAYA DEVI S",
+    "department": "B.SC CS",
+    "phone": "+918765432109 (SAMPLE)",
+    "barcode": "890123456004 (SAMPLE)",
+    "photoFile": "26BSC004.jpg"
+  },
+  {
+    "studentId": "26BSC008",
+    "name": "BHAGYADHARSHINI V",
+    "department": "B.SC CS",
+    "phone": "+917654321098 (SAMPLE)",
+    "barcode": "890123456008 (SAMPLE)",
+    "photoFile": "26BSC008.jpg"
+  },
+  {
+    "studentId": "26BSC010",
+    "name": "BHAVANA G",
+    "department": "B.SC CS",
+    "phone": "+916543210987 (SAMPLE)",
+    "barcode": "890123456010 (SAMPLE)",
+    "photoFile": "26BSC010.jpg"
+  },
+  {
+    "studentId": "26BSC011",
+    "name": "DEVADHARSHINI R",
+    "department": "B.SC CS",
+    "phone": "+919432109876 (SAMPLE)",
+    "barcode": "890123456011 (SAMPLE)",
+    "photoFile": "26BSC011.jpg"
+  },
+  {
+    "studentId": "26BSC012",
+    "name": "DEVASRI S",
+    "department": "B.SC CS",
+    "phone": "+918321098765 (SAMPLE)",
+    "barcode": "890123456012 (SAMPLE)",
+    "photoFile": "26BSC012.jpg"
+  },
+  {
+    "studentId": "26BSC022",
+    "name": "NIKILA K",
+    "department": "B.SC CS",
+    "phone": "+917210987654 (SAMPLE)",
+    "barcode": "890123456022 (SAMPLE)",
+    "photoFile": "26BSC022.jpg"
+  },
+  {
+    "studentId": "26BSC023",
+    "name": "NISHANTHINI S",
+    "department": "B.SC CS",
+    "phone": "+916109876543 (SAMPLE)",
+    "barcode": "890123456023 (SAMPLE)",
+    "photoFile": "26BSC023.jpg"
+  },
+  {
+    "studentId": "26BSC024",
+    "name": "PRAGATHI R",
+    "department": "B.SC CS",
+    "phone": "+919988776655 (SAMPLE)",
+    "barcode": "890123456024 (SAMPLE)",
+    "photoFile": "26BSC024.jpg"
+  },
+  {
+    "studentId": "26BSC027",
+    "name": "RAMANISHWARI S",
+    "department": "B.SC CS",
+    "phone": "+918877665544 (SAMPLE)",
+    "barcode": "890123456027 (SAMPLE)",
+    "photoFile": "26BSC027.jpg"
+  }
+]

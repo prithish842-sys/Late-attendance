@@ -1,0 +1,16 @@
+{
+  "name": "late-attendance-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One-time seed + bulk-CSV import and demo-user helpers for the late-attendance Firebase project.",
+  "type": "module",
+  "scripts": {
+    "seed": "node seed_project.js seed",
+    "csv": "node seed_project.js csv",
+    "adduser": "node seed_project.js adduser"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^14.4.0"
+  }
+}

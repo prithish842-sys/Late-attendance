@@ -1,0 +1,42 @@
+// Phase 2 — Storage security rules (docs/SECURITY.md §7, Phase 7 cleanup).
+//
+// Only the PT Sir / Admin roles (via Firebase Auth custom claims) can read
+// student photos and generated reports. No public access, no third role.
+// Writes are server-only (import via Admin SDK).
+// NOTE: Cloud Storage for Firebase is currently DISABLED on this project (Spark
+// plan). Until it is enabled, the app uses the base64 Dart fallback — these rules
+// are shipped ready for when Storage is switched on. See docs/NOTES.md.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return request.auth.token.role;
+    }
+    function isStaff() {
+      return signedIn() && role() in ['pt_sir', 'admin'];
+    }
+
+    // students/{studentId}/photo — role-gated read, no client writes.
+    match /students/{studentId}/photo {
+      allow read: if isStaff();
+      allow write: if false; // server import only (Admin SDK bypasses rules)
+    }
+
+    // reports/{reportId}/{file} — generated attendance reports (Phase 4).
+    // Readable by any staff role; written only by the server (the Blaze
+    // generateReport callable or the Admin-SDK runner bypass client rules).
+    match /reports/{reportId}/{file} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
+    // Everything else: no access.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

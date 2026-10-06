@@ -1,0 +1,281 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Role-gated via Firebase Auth custom claims (NEW_SECURITY.md — Phase 7 cleanup).
+//
+// ROLES (claim: request.auth.token.role) — exactly two, no third role:
+//   pt_sir  — scans students, creates late_logs, enqueues mail/report intents,
+//             reads everything relevant
+//   admin   — everything pt_sir can read, plus settings/staff/departments,
+//             master-data lifecycle and audit collections
+// (There is no HOD role or HOD login — HOD is only an e-mail recipient stored
+//  on department docs; NEW_SECURITY.md "Roles — confirmed".)
+//
+// SPARK FALLBACK GATE: escalation_queue
+//   docs/SECURITY.md §1 says only the server may write escalation decisions, and
+//   docs/SECURITY.md §5 says those collections are client-write-protected. On
+//   Blaze that is done with a Cloud Function onCreate trigger (functions/index.js).
+//   Spark has NO Cloud Functions, so the admin-runnable fallback
+//   (scripts/process-escalation.js) uses the Admin SDK — it BYPASSES rules, so
+//   the client remains fully write-blocked on escalation_queue even on Spark.
+//   Nothing in this file needs to change on the Blaze upgrade:
+//     1. deploy functions/ (firebase deploy --only functions)
+//     2. flip the app config BLAZE_ENABLED to true
+//     The rules below already match the real deployment. See docs/NOTES.md.
+//
+// Client-write surface remains exactly: late_logs.create (pt_sir),
+// mail_queue/report_requests.create (pt_sir/admin), settings/staff/departments
+// (admin). Everything else stays server-only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function role() {
+      return request.auth.token.role;
+    }
+    function isStaff() {
+      return signedIn() && role() in ['pt_sir', 'admin'];
+    }
+    function isAdmin() {
+      return signedIn() && role() == 'admin';
+    }
+    function isPtSir() {
+      return signedIn() && role() == 'pt_sir';
+    }
+
+    // ── students ────────────────────────────────────────────────────────────
+    // Readable by all staff roles (photos are handled via Storage rules §7,
+    // or base64 Dart fallback while Storage is off). Writes stay server/admin.
+    match /students/{studentId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ── late_logs ───────────────────────────────────────────────────────────
+    // Only pt_sir creates these (scan events, not decisions — SECURITY.md §1).
+    // Immutable: no update/delete from any client (SECURITY.md §5, §8).
+    // Deterministic doc id (studentId_YYYY-MM-DD, SECURITY.md §3).
+    match /late_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isPtSir();
+      allow update, delete: if false;
+    }
+
+    // ── escalation_queue ─────────────────────────────────────────────────────
+    // Verdicts are server-authoritative (SECURITY.md §1, §5, §8): written by the
+    // Cloud Function (Blaze) or the Admin-SDK fallback runner
+    // (scripts/process-escalation.js on Spark). The client only reads.
+    match /escalation_queue/{doc} {
+      allow read: if isStaff();
+      allow create, update, delete: if false;
+    }
+
+    // ── staff ───────────────────────────────────────────────────────────────
+    // Roles read by any staff; only admin writes. UID keyed by Auth UID.
+    match /staff/{uid} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ── departments ──────────────────────────────────────────────────────────
+    match /departments/{departmentId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ── settings ────────────────────────────────────────────────────────────
+    // All signed-in staff may read thresholds (DECISIONS.md #2); writes admin-only.
+    // The escalation runtime doc is writable by admin (flips Spark gate).
+    match /settings/{doc} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ── mail_logs ───────────────────────────────────────────────────────────
+    // Cloud Function audit trail. Server-writes only; staff may read.
+    match /mail_logs/{doc} {
+      allow read: if isStaff();
+      allow create, update, delete: if false;
+    }
+
+    // ── mail_queue ──────────────────────────────────────────────────────────
+    // Phase 3. PT sir / admin ENQUEUE a mail request (a raw request event, like
+    // a scan — not a decision). The actual send + mail_logs write is performed
+    // server-side only: the Cloud Function (processMailQueue on Blaze) or the
+    // Admin-SDK runner (scripts/process-mail.js on Spark). Both bypass rules,
+    // so clients can never mark a request sent/failed or edit it.
+    match /mail_queue/{doc} {
+      allow read: if isStaff();
+      // C4 payload caps: clients may only ENQUEUE a well-shaped, bounded
+      // request — fixed key set, `status: pending`, bounded strings/lists.
+      // Every server-side runner (Cloud Function / Admin SDK) bypasses rules,
+      // so tightening this never blocks the send/generate paths.
+      allow create: if signedIn() && role() in ['pt_sir', 'admin']
+        && request.resource.data.keys().hasAll(
+             ['departmentId', 'department', 'requestedBy', 'status', 'attemptCount', 'requestedAt'])
+        && request.resource.data.keys().hasOnly(
+             ['departmentId', 'department', 'period', 'periodType', 'startDate', 'endDate',
+              'attachmentMode', 'type', 'year', 'studentIds', 'requestedBy', 'status',
+              'attemptCount', 'requestedAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.attemptCount is int
+        && request.resource.data.attemptCount == 0
+        && request.resource.data.departmentId is string
+        && request.resource.data.departmentId.size() <= 64
+        && request.resource.data.department is string
+        && request.resource.data.department.size() <= 120
+        && request.resource.data.requestedBy is string
+        && request.resource.data.requestedBy.size() <= 128
+        && request.resource.data.requestedAt is timestamp
+        && (!('type' in request.resource.data)
+             || request.resource.data.type in ['report', 'weekly_audit'])
+        && (!('period' in request.resource.data)
+             || (request.resource.data.period is string
+                 && request.resource.data.period.size() <= 32))
+        && (!('periodType' in request.resource.data)
+             || request.resource.data.periodType in ['daily', 'weekly', 'monthly', 'custom'])
+        && (!('studentIds' in request.resource.data)
+             || (request.resource.data.studentIds is list
+                 && request.resource.data.studentIds.size() <= 500))
+        && (!('year' in request.resource.data)
+             || request.resource.data.year == null
+             || (request.resource.data.year is string
+                 && request.resource.data.year.size() <= 8))
+        && (!('startDate' in request.resource.data)
+             || (request.resource.data.startDate is string
+                 && request.resource.data.startDate.size() <= 10))
+        && (!('endDate' in request.resource.data)
+             || (request.resource.data.endDate is string
+                 && request.resource.data.endDate.size() <= 10))
+        && (!('attachmentMode' in request.resource.data)
+             || (request.resource.data.attachmentMode is string
+                 && request.resource.data.attachmentMode.size() <= 16));
+      allow update, delete: if false;
+    }
+
+    // ── report_requests ─────────────────────────────────────────────────────
+    // Phase 4. PT sir / admin ENQUEUE a report request (a raw intent, exactly
+    // like a scan or a mail enqueue). The actual generation + report_logs write
+    // is performed server-side only: the Cloud Function (generateReport on
+    // Blaze) or the Admin-SDK runner (scripts/generate-report.js on Spark).
+    // Both bypass rules, so clients can never mark a request generated/failed
+    // or edit it.
+    match /report_requests/{doc} {
+      allow read: if isStaff();
+      // C4 payload caps: same shape contract as mail_queue — only the exact
+      // client keys, a known periodType, bounded strings, status pending.
+      allow create: if signedIn() && role() in ['pt_sir', 'admin']
+        && request.resource.data.keys().hasAll(
+             ['periodType', 'startDate', 'endDate', 'requestedBy', 'status', 'attemptCount', 'requestedAt'])
+        && request.resource.data.keys().hasOnly(
+             ['periodType', 'startDate', 'endDate', 'department', 'year', 'requestedBy',
+              'status', 'attemptCount', 'requestedAt'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.attemptCount is int
+        && request.resource.data.attemptCount == 0
+        && request.resource.data.periodType in ['daily', 'weekly', 'monthly', 'custom']
+        && request.resource.data.startDate is string
+        && request.resource.data.startDate.size() <= 10
+        && request.resource.data.endDate is string
+        && request.resource.data.endDate.size() <= 10
+        && request.resource.data.requestedBy is string
+        && request.resource.data.requestedBy.size() <= 128
+        && request.resource.data.requestedAt is timestamp
+        && (!('department' in request.resource.data)
+             || request.resource.data.department == null
+             || (request.resource.data.department is string
+                 && request.resource.data.department.size() <= 64))
+        && (!('year' in request.resource.data)
+             || request.resource.data.year == null
+             || (request.resource.data.year is string
+                 && request.resource.data.year.size() <= 8));
+      allow update, delete: if false;
+    }
+
+    // ── report_logs ─────────────────────────────────────────────────────────
+    // Phase 4 audit trail for generated reports. Server-writes only; staff may
+    // read (SECURITY.md §5, §8).
+    match /report_logs/{doc} {
+      allow read: if isStaff();
+      allow create, update, delete: if false;
+    }
+
+    // ── offline_sync_flags ──────────────────────────────────────────────────
+    // Phase 5. SECURITY.md §2 audit trail: each synced-offline late_log gets a
+    // device-vs-server time assessment written by the server (the escalateLateLog
+    // Cloud Function on Blaze, or scripts/process-offline-sync.js on Spark).
+    // Staff may read the flags for admin review; every write is server-only.
+    match /offline_sync_flags/{doc} {
+      allow read: if isStaff();
+      allow create, update, delete: if false;
+    }
+
+    // ── admin_requests ─────────────────────────────────────────────────────
+    // Phase 4. The ADMIN enqueues a lifecycle/import intent (a raw request
+    // event — "import this sheet", "soft-delete these students", "restore
+    // them", "permanent-delete them") exactly like a scan or a mail enqueue.
+    // The actual write is performed server-side only: the Cloud Functions
+    // (commitImportBatch / adminSoftDelete / adminRestore / adminPermanentDelete
+    // on Blaze) or the Admin-SDK runner (scripts/process-admin.js on Spark).
+    // Both bypass rules, so clients can never mark a request done/failed or
+    // tamper with it after enqueueing. PT sir's role alone is NOT enough —
+    // master-data lifecycle is admin-only (NEW_SECURITY.md).
+    match /admin_requests/{doc} {
+      allow read: if isStaff();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ── import_batches ──────────────────────────────────────────────────────
+    // Phase 4. Batch-import metadata (filename, counts, batch years). Written
+    // server-only as the commit happens; administrators read it from the
+    // Batch Import history.
+    match /import_batches/{doc} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ── deletion_records ────────────────────────────────────────────────────
+    // Phase 4. Two-stage deletion evidence (NEW_DECISIONS.md #12): each record
+    // holds the deleted student's snapshot, who/when/why and the retention
+    // marker. Admin reads it (Recently Deleted / restore / permanent delete);
+    // every write is server-only.
+    match /deletion_records/{doc} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ── audit_logs ──────────────────────────────────────────────────────────
+    // Phase 4. Append-only server audit trail for admin/import/lifecycle
+    // actions. Admin may read for investigation; nobody writes from a client.
+    match /audit_logs/{doc} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ── pass_out_reviews ────────────────────────────────────────────────────
+    // Phase 5. Server-authoritative pass-out notifications materialised by the
+    // pass-out job (cron job / scheduled runner). Admin reads them from the
+    // Pass-out Review screen; the lifecycle schedulers (soft delete with reason
+    // "pass_out", restore) flip status to soft_deleted/restored server-side.
+    // The job NEVER deletes or archives students (NEW_ADMIN_WORKFLOW.md).
+    match /pass_out_reviews/{doc} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ── cron_jobs ───────────────────────────────────────────────────────────
+    // Phase 5. Append-only server audit trail for the scheduled jobs (weekly
+    // audit, pass-out, mail retry sweep). Admin may read for monitoring;
+    // nobody writes from a client — the Cloud Functions / Admin-SDK runners
+    // bypass rules as the server (SECURITY.md §8).
+    match /cron_jobs/{doc} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
+    }
+  }
+}

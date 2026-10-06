@@ -1,0 +1,37 @@
+[
+  {
+    "id": "BSC-CS",
+    "name": "B.Sc Computer Science",
+    "hodEmail": "computersciencearts@sankara.ac.in"
+  },
+  {
+    "id": "BSC-IT",
+    "name": "B.Sc Information Technology",
+    "hodEmail": "itarts@sankara.ac.in"
+  },
+  {
+    "id": "BSC-MGMT",
+    "name": "B.Sc Management",
+    "hodEmail": "managementarts@sankara.ac.in"
+  },
+  {
+    "id": "BSC-COM",
+    "name": "B.Sc Commerce",
+    "hodEmail": "commercearts@sankara.ac.in"
+  },
+  {
+    "id": "BSC-COM-PAA",
+    "name": "B.Sc Commerce (PAA)",
+    "hodEmail": "commercepaatrs@sankara.ac.in"
+  },
+  {
+    "id": "BSC-COM-CA",
+    "name": "B.Sc Commerce (CA)",
+    "hodEmail": "commercecaarts@sankara.ac.in"
+  },
+  {
+    "id": "BSC-CAT",
+    "name": "B.Sc Catering",
+    "hodEmail": "cateringarts@sankara.ac.in"
+  }
+]

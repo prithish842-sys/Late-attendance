@@ -1,0 +1,17 @@
+{
+  "name": "late-attendance-functions",
+  "description": "Server-side escalation + HOD mail logic. Requires the Firebase Blaze plan to deploy — see docs/NOTES.md.",
+  "version": "0.3.0",
+  "private": true,
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/escalation-core.test.js test/mail-core.test.js test/report-core.test.js test/report-mail-core.test.js test/offline-sync-core.test.js test/weekly-audit-core.test.js test/admin-core.test.js test/mail-retry-core.test.js test/weekly-audit-job.test.js test/performance.test.js test/mail-queue-runner.test.js test/rate-limit.test.js"
+  },
+  "dependencies": {
+    "exceljs": "^4.4.0",
+    "firebase-admin": "^14.4.0",
+    "firebase-functions": "^7.4.0",
+    "pdfkit": "^0.16.0"
+  }
+}

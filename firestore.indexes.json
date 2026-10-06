@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "late_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "studentId", "order": "ASCENDING" },
+        { "fieldPath": "scanTimestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "escalation_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
